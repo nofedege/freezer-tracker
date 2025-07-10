@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>-80 Freezer Cell Tracker</title>
+    <title>-80 Freezer Cell Tracker - Multi-User</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -25,6 +25,30 @@
             color: #333;
             text-align: center;
             margin-bottom: 30px;
+        }
+        
+        .user-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .user-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            color: #333;
         }
         
         .input-section {
@@ -89,6 +113,14 @@
             background-color: #d32f2f;
         }
         
+        .user-btn {
+            background-color: #9c27b0;
+        }
+        
+        .user-btn:hover {
+            background-color: #7b1fa2;
+        }
+        
         .freezer-box {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
@@ -137,58 +169,15 @@
             cursor: move;
         }
         
-        .suggestion-box {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        
-        .suggestion-box h4 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-        }
-        
-        .suggestion-form {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
-        }
-        
-        .suggestion-input {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 5px;
-            font-size: 14px;
-            resize: vertical;
-            min-height: 60px;
-        }
-        
-        .suggestion-btn {
-            background-color: rgba(255,255,255,0.2);
-            color: white;
-            border: 2px solid rgba(255,255,255,0.3);
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        
-        .suggestion-btn:hover {
-            background-color: rgba(255,255,255,0.3);
-            border-color: rgba(255,255,255,0.5);
-        }
-        
-        .suggestion-success {
-            background-color: rgba(0,255,0,0.2);
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 10px;
+        .modal {
             display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
         }
         
         .modal-content {
@@ -277,20 +266,6 @@
             position: relative;
         }
         
-        .cell.jsl020 {
-            background-color: #ffcdd2;
-            border-color: #d32f2f;
-            color: white;
-            font-weight: bold;
-        }
-        
-        .cell.ym447 {
-            background-color: #c8e6c9;
-            border-color: #4caf50;
-            color: #1b5e20;
-            font-weight: bold;
-        }
-        
         .legend {
             display: flex;
             justify-content: center;
@@ -342,97 +317,192 @@
             font-size: 9px;
             line-height: 1.1;
         }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .user-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .user-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .user-item:last-child {
+            border-bottom: none;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .small-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin: 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>-80°C Freezer Cell Tracker</h1>
+        <h1>-80°C Freezer Cell Tracker - Multi-User</h1>
         
-        <div class="input-section">
-            <div class="input-group">
-                <label for="projectName">Project Name:</label>
-                <input type="text" id="projectName" placeholder="e.g., JSL020+, YM447">
-            </div>
-            
-            <div class="input-group">
-                <label for="cellType">Cell Type:</label>
-                <select id="cellType">
-                    <option value="">Select type</option>
-                    <option value="single cell">Single cell</option>
-                    <option value="pool">Pool</option>
-                    <option value="bulk sort">Bulk sort</option>
+        <!-- User Profile Section -->
+        <div class="user-section">
+            <div class="user-controls">
+                <div class="user-info">
+                    <span>Current User:</span>
+                    <span id="currentUserName">None</span>
+                </div>
+                <select id="userSelect" style="margin: 0;">
+                    <option value="">Select User Profile</option>
                 </select>
+                <button class="user-btn" onclick="showUserModal()">Manage Users</button>
+                <button class="user-btn" onclick="logoutUser()">Logout</button>
+            </div>
+            <div id="userHelp" class="status" style="background-color: #e3f2fd; color: #1565c0; border-color: #bbdefb;">
+                Please select a user profile or create a new one to begin tracking samples.
+            </div>
+        </div>
+        
+        <!-- Main Application (hidden until user logs in) -->
+        <div id="mainApp" class="hidden">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="projectName">Project Name:</label>
+                    <input type="text" id="projectName" placeholder="e.g., JSL020+, YM447">
+                </div>
+                
+                <div class="input-group">
+                    <label for="cellType">Cell Type:</label>
+                    <select id="cellType">
+                        <option value="">Select type</option>
+                        <option value="single cell">Single cell</option>
+                        <option value="pool">Pool</option>
+                        <option value="bulk sort">Bulk sort</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="cloneName">Clone Name (if applicable):</label>
+                    <input type="text" id="cloneName" placeholder="e.g., 1H9, 2E8, B11">
+                </div>
+                
+                <div class="input-group">
+                    <label for="freezeDate">Freeze Date:</label>
+                    <input type="date" id="freezeDate">
+                </div>
+                
+                <div class="input-group">
+                    <label for="numVials">Number of Vials:</label>
+                    <input type="number" id="numVials" min="1" max="20" value="1">
+                </div>
             </div>
             
-            <div class="input-group">
-                <label for="cloneName">Clone Name (if applicable):</label>
-                <input type="text" id="cloneName" placeholder="e.g., 1H9, 2E8, B11">
+            <div style="text-align: center;">
+                <button onclick="addSamples()">Add Samples to Freezer</button>
+                <button class="export-btn" onclick="exportData()">Export to CSV</button>
+                <button class="export-btn" onclick="saveUserData()">Save My Data</button>
+                <button class="clear-btn" onclick="clearUserData()">Clear My Data</button>
             </div>
             
-            <div class="input-group">
-                <label for="freezeDate">Freeze Date:</label>
-                <input type="date" id="freezeDate">
+            <div id="status"></div>
+            
+            <div class="box-info">
+                <strong>Freezer Box Layout (100 positions: A1-J10)</strong><br>
+                <span id="occupancy">0 / 100 positions occupied</span>
             </div>
             
-            <div class="input-group">
-                <label for="numVials">Number of Vials:</label>
-                <input type="number" id="numVials" min="1" max="20" value="1">
+            <div class="legend" id="legendContainer">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: white; border: 1px solid #ccc;"></div>
+                    <span>Empty</span>
+                </div>
+                <div class="legend-item">
+                    <span style="font-style: italic;">💡 Tips: Click cells to edit • Drag cells to move • Hover for controls</span>
+                </div>
+            </div>
+            
+            <div class="freezer-box" id="freezerBox">
+                <!-- Grid will be generated by JavaScript -->
             </div>
         </div>
-        
-        <div style="text-align: center;">
-            <button onclick="addSamples()">Add Samples to Freezer</button>
-            <button class="export-btn" onclick="exportData()">Export to CSV</button>
-            <button class="export-btn" onclick="saveData()">Save Data File</button>
-            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadData()">
-            <button class="export-btn" onclick="document.getElementById('fileInput').click()">Load Data File</button>
-            <button class="clear-btn" onclick="clearAll()">Clear All</button>
-        </div>
-        
-        <div id="status"></div>
-        
-        <!-- Suggestion Box -->
-        <div class="suggestion-box">
-            <h4>💡 Got Ideas? Help Improve This Tool!</h4>
-            <p style="margin: 5px 0; font-size: 14px; opacity: 0.9;">
-                Suggest new features, report bugs, or share feedback to make this freezer tracker even better for our lab.
-            </p>
-            <form class="suggestion-form" action="https://formspree.io/f/xgvyebwj" method="POST">
-                <textarea 
-                    name="suggestion" 
-                    class="suggestion-input" 
-                    placeholder="Example: Add barcode scanning, multiple freezer support, export to specific formats, etc."
-                    required>
-                </textarea>
-                <button type="submit" class="suggestion-btn">Send Idea</button>
-            </form>
-            <div class="suggestion-success" id="suggestionSuccess">
-                ✅ Thanks! Your suggestion has been sent. Keep the ideas coming!
+    </div>
+
+    <!-- User Management Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage User Profiles</h3>
+                <button class="close-btn" onclick="closeUserModal()">&times;</button>
+            </div>
+            
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="newUserName">Create New User:</label>
+                    <input type="text" id="newUserName" placeholder="Enter your name">
+                </div>
+                
+                <div class="input-group">
+                    <label for="newUserPassword">Password (optional):</label>
+                    <input type="password" id="newUserPassword" placeholder="Leave blank for no password">
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 15px 0;">
+                <button class="save-btn" onclick="createUser()">Create User</button>
+            </div>
+            
+            <div id="userList" class="user-list">
+                <!-- User list will be populated here -->
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeUserModal()">Close</button>
             </div>
         </div>
-        
-        <div class="box-info">
-            <strong>Freezer Box Layout (100 positions: A1-J10)</strong><br>
-            <span id="occupancy">0 / 100 positions occupied</span>
-        </div>
-        
-        <div class="legend" id="legendContainer">
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: white; border: 1px solid #ccc;"></div>
-                <span>Empty</span>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Enter Password</h3>
+                <button class="close-btn" onclick="closePasswordModal()">&times;</button>
             </div>
-            <div class="legend-item">
-                <span style="font-style: italic;">💡 Tips: Click cells to edit • Drag cells to move • Hover for controls</span>
+            
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="passwordInput">Password for <span id="passwordUserName"></span>:</label>
+                    <input type="password" id="passwordInput" placeholder="Enter password">
+                </div>
             </div>
-        </div>
-        
-        <div class="freezer-box" id="freezerBox">
-            <!-- Grid will be generated by JavaScript -->
+            
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closePasswordModal()">Cancel</button>
+                <button class="save-btn" onclick="verifyPassword()">Login</button>
+            </div>
         </div>
     </div>
 
     <!-- Edit Modal -->
-    <div id="editModal" class="edit-modal">
+    <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Edit Sample Details</h3>
@@ -480,6 +550,305 @@
     </div>
 
     <script>
+        // User Management System
+        let currentUser = null;
+        let users = {};
+        let pendingUserLogin = null;
+        
+        // Initialize user management
+        function initializeUsers() {
+            const savedUsers = localStorage.getItem('freezerUsers');
+            if (savedUsers) {
+                users = JSON.parse(savedUsers);
+            }
+            updateUserSelect();
+        }
+        
+        // Update user dropdown
+        function updateUserSelect() {
+            const select = document.getElementById('userSelect');
+            select.innerHTML = '<option value="">Select User Profile</option>';
+            
+            Object.keys(users).forEach(username => {
+                const option = document.createElement('option');
+                option.value = username;
+                option.textContent = users[username].displayName;
+                select.appendChild(option);
+            });
+        }
+        
+        // Show user management modal
+        function showUserModal() {
+            updateUserList();
+            document.getElementById('userModal').style.display = 'block';
+        }
+        
+        // Close user management modal
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('newUserName').value = '';
+            document.getElementById('newUserPassword').value = '';
+        }
+        
+        // Update user list in modal
+        function updateUserList() {
+            const userListDiv = document.getElementById('userList');
+            userListDiv.innerHTML = '';
+            
+            if (Object.keys(users).length === 0) {
+                userListDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No users created yet</div>';
+                return;
+            }
+            
+            Object.keys(users).forEach(username => {
+                const user = users[username];
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-item';
+                userDiv.innerHTML = `
+                    <div>
+                        <strong>${user.displayName}</strong>
+                        <br><small>Created: ${user.created} | Samples: ${user.sampleCount || 0}</small>
+                    </div>
+                    <div class="user-actions">
+                        <button class="delete-btn small-btn" onclick="deleteUser('${username}')">Delete</button>
+                    </div>
+                `;
+                userListDiv.appendChild(userDiv);
+            });
+        }
+        
+        // Create new user
+        function createUser() {
+            const name = document.getElementById('newUserName').value.trim();
+            const password = document.getElementById('newUserPassword').value;
+            
+            if (!name) {
+                showStatus('Please enter a user name', 'error');
+                return;
+            }
+            
+            const username = name.toLowerCase().replace(/\s+/g, '_');
+            
+            if (users[username]) {
+                showStatus('User already exists', 'error');
+                return;
+            }
+            
+            // Create user profile
+            users[username] = {
+                displayName: name,
+                password: password || null,
+                created: new Date().toLocaleDateString(),
+                sampleCount: 0
+            };
+            
+            // Save users to localStorage
+            localStorage.setItem('freezerUsers', JSON.stringify(users));
+            
+            // Update UI
+            updateUserSelect();
+            updateUserList();
+            
+            // Clear form
+            document.getElementById('newUserName').value = '';
+            document.getElementById('newUserPassword').value = '';
+            
+            showStatus(`User "${name}" created successfully`, 'success');
+        }
+        
+        // Delete user
+        function deleteUser(username) {
+            const user = users[username];
+            if (confirm(`Are you sure you want to delete user "${user.displayName}" and all their data? This cannot be undone.`)) {
+                // Delete user data
+                localStorage.removeItem(`freezerData_${username}`);
+                localStorage.removeItem(`freezerColors_${username}`);
+                
+                // Delete user profile
+                delete users[username];
+                localStorage.setItem('freezerUsers', JSON.stringify(users));
+                
+                // Update UI
+                updateUserSelect();
+                updateUserList();
+                
+                // If this was the current user, log them out
+                if (currentUser === username) {
+                    logoutUser();
+                }
+                
+                showStatus(`User "${user.displayName}" deleted`, 'success');
+            }
+        }
+        
+        // Handle user selection
+        document.getElementById('userSelect').addEventListener('change', function() {
+            const selectedUser = this.value;
+            if (selectedUser) {
+                attemptUserLogin(selectedUser);
+            }
+        });
+        
+        // Attempt to log in user
+        function attemptUserLogin(username) {
+            const user = users[username];
+            if (!user) return;
+            
+            if (user.password) {
+                // Show password modal
+                pendingUserLogin = username;
+                document.getElementById('passwordUserName').textContent = user.displayName;
+                document.getElementById('passwordModal').style.display = 'block';
+                document.getElementById('passwordInput').focus();
+            } else {
+                // No password required, log in directly
+                loginUser(username);
+            }
+        }
+        
+        // Show/close password modal
+        function closePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.getElementById('passwordInput').value = '';
+            pendingUserLogin = null;
+            document.getElementById('userSelect').value = '';
+        }
+        
+        // Verify password and login
+        function verifyPassword() {
+            const enteredPassword = document.getElementById('passwordInput').value;
+            const user = users[pendingUserLogin];
+            
+            if (enteredPassword === user.password) {
+                closePasswordModal();
+                loginUser(pendingUserLogin);
+            } else {
+                showStatus('Incorrect password', 'error');
+                document.getElementById('passwordInput').value = '';
+                document.getElementById('passwordInput').focus();
+            }
+        }
+        
+        // Handle Enter key in password field
+        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                verifyPassword();
+            }
+        });
+        
+        // Login user
+        function loginUser(username) {
+            currentUser = username;
+            const user = users[username];
+            
+            // Update UI
+            document.getElementById('currentUserName').textContent = user.displayName;
+            document.getElementById('userHelp').style.display = 'none';
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('userSelect').value = username;
+            
+            // Load user's data
+            loadUserData();
+            
+            showStatus(`Welcome back, ${user.displayName}!`, 'success');
+        }
+        
+        // Logout user
+        function logoutUser() {
+            if (currentUser) {
+                // Save current data before logout
+                saveUserData();
+                
+                currentUser = null;
+                document.getElementById('currentUserName').textContent = 'None';
+                document.getElementById('userHelp').style.display = 'block';
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('userSelect').value = '';
+                
+                // Clear current session data
+                freezerData = {};
+                projectColors = {};
+                colorIndex = 0;
+                
+                showStatus('Logged out successfully', 'success');
+            }
+        }
+        
+        // Load user's data from localStorage
+        function loadUserData() {
+            if (!currentUser) return;
+            
+            const savedData = localStorage.getItem(`freezerData_${currentUser}`);
+            const savedColors = localStorage.getItem(`freezerColors_${currentUser}`);
+            
+            if (savedData) {
+                try {
+                    freezerData = JSON.parse(savedData);
+                } catch (e) {
+                    freezerData = {};
+                }
+            } else {
+                freezerData = {};
+            }
+            
+            if (savedColors) {
+                try {
+                    const colorData = JSON.parse(savedColors);
+                    projectColors = colorData.colors || {};
+                    colorIndex = colorData.index || 0;
+                } catch (e) {
+                    projectColors = {};
+                    colorIndex = 0;
+                }
+            } else {
+                projectColors = {};
+                colorIndex = 0;
+            }
+            
+            // Update displays
+            initializeFreezerBox();
+            updateLegend();
+            updateOccupancy();
+            
+            // Update sample count for user
+            users[currentUser].sampleCount = Object.keys(freezerData).length;
+            localStorage.setItem('freezerUsers', JSON.stringify(users));
+        }
+        
+        // Save user's data to localStorage
+        function saveUserData() {
+            if (!currentUser) return;
+            
+            localStorage.setItem(`freezerData_${currentUser}`, JSON.stringify(freezerData));
+            
+            const colorData = {
+                colors: projectColors,
+                index: colorIndex
+            };
+            localStorage.setItem(`freezerColors_${currentUser}`, JSON.stringify(colorData));
+            
+            // Update sample count
+            users[currentUser].sampleCount = Object.keys(freezerData).length;
+            localStorage.setItem('freezerUsers', JSON.stringify(users));
+            
+            showStatus('Data saved successfully', 'success');
+        }
+        
+        // Clear user's data
+        function clearUserData() {
+            if (!currentUser) return;
+            
+            if (confirm('Are you sure you want to clear all your freezer data? This cannot be undone.')) {
+                freezerData = {};
+                projectColors = {};
+                colorIndex = 0;
+                initializeFreezerBox();
+                updateLegend();
+                saveUserData();
+                showStatus('All data cleared', 'success');
+            }
+        }
+
         // Initialize freezer box data
         let freezerData = {};
         let draggedElement = null;
@@ -522,6 +891,11 @@
                 
                 // Update legend
                 updateLegend();
+                
+                // Auto-save when new colors are added
+                if (currentUser) {
+                    saveUserData();
+                }
             }
             
             return projectColors[normalizedName];
@@ -541,540 +915,4 @@
             
             const tipItem = `
                 <div class="legend-item">
-                    <span style="font-style: italic;">💡 Tip: Drag occupied cells to move samples around</span>
-                </div>
-            `;
-            
-            // Generate legend items for all projects
-            let projectItems = '';
-            Object.values(projectColors).forEach(colorInfo => {
-                projectItems += `
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: ${colorInfo.bg}; border: 1px solid ${colorInfo.border};"></div>
-                        <span>${colorInfo.originalName}</span>
-                    </div>
-                `;
-            });
-            
-            legendContainer.innerHTML = staticItems + projectItems + tipItem;
-        }
-        function initializeFreezerBox() {
-            const freezerBox = document.getElementById('freezerBox');
-            const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-            
-            for (let row = 0; row < 10; row++) {
-                for (let col = 1; col <= 10; col++) {
-                    const position = rows[row] + col;
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.id = position;
-                    cell.onclick = () => showCellInfo(position);
-                    
-                    // Add drag and drop event listeners
-                    cell.addEventListener('dragstart', handleDragStart);
-                    cell.addEventListener('dragover', handleDragOver);
-                    cell.addEventListener('drop', handleDrop);
-                    cell.addEventListener('dragend', handleDragEnd);
-                    cell.addEventListener('dragenter', handleDragEnter);
-                    cell.addEventListener('dragleave', handleDragLeave);
-                    
-                    const positionLabel = document.createElement('div');
-                    positionLabel.textContent = position;
-                    positionLabel.style.fontSize = '8px';
-                    positionLabel.style.fontWeight = 'bold';
-                    
-                    // Add drag handle for occupied cells
-                    const dragHandle = document.createElement('div');
-                    dragHandle.className = 'drag-handle';
-                    
-                    cell.appendChild(positionLabel);
-                    cell.appendChild(dragHandle);
-                    freezerBox.appendChild(cell);
-                }
-            }
-            updateOccupancy();
-        }
-        
-        // Drag and drop handlers
-        function handleDragStart(e) {
-            const position = e.target.id || e.target.closest('.cell').id;
-            
-            // Only allow dragging if cell is occupied
-            if (!freezerData[position]) {
-                e.preventDefault();
-                return;
-            }
-            
-            draggedElement = e.target.closest('.cell');
-            draggedPosition = position;
-            
-            draggedElement.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', draggedElement.outerHTML);
-            
-            showStatus(`Dragging sample from ${position}`, 'success');
-        }
-        
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-        }
-        
-        function handleDragEnter(e) {
-            const cell = e.target.closest('.cell');
-            if (cell && cell !== draggedElement) {
-                cell.classList.add('drag-over');
-            }
-        }
-        
-        function handleDragLeave(e) {
-            const cell = e.target.closest('.cell');
-            if (cell) {
-                cell.classList.remove('drag-over');
-            }
-        }
-        
-        function handleDrop(e) {
-            e.preventDefault();
-            
-            const targetCell = e.target.closest('.cell');
-            const targetPosition = targetCell.id;
-            
-            // Remove drag-over styling
-            targetCell.classList.remove('drag-over');
-            
-            if (!draggedPosition || targetPosition === draggedPosition) {
-                return;
-            }
-            
-            // Check if target position is occupied
-            if (freezerData[targetPosition]) {
-                // Swap samples
-                const tempData = freezerData[draggedPosition];
-                freezerData[draggedPosition] = freezerData[targetPosition];
-                freezerData[targetPosition] = tempData;
-                
-                showStatus(`Swapped samples: ${draggedPosition} ↔ ${targetPosition}`, 'success');
-            } else {
-                // Move sample to empty position
-                freezerData[targetPosition] = freezerData[draggedPosition];
-                delete freezerData[draggedPosition];
-                
-                showStatus(`Moved sample: ${draggedPosition} → ${targetPosition}`, 'success');
-            }
-            
-            // Update displays
-            updateCellDisplay(draggedPosition);
-            updateCellDisplay(targetPosition);
-        }
-        
-        function handleDragEnd(e) {
-            if (draggedElement) {
-                draggedElement.classList.remove('dragging');
-            }
-            
-            // Remove drag-over from all cells
-            document.querySelectorAll('.cell').forEach(cell => {
-                cell.classList.remove('drag-over');
-            });
-            
-            draggedElement = null;
-            draggedPosition = null;
-        }
-        
-        // Find next available positions
-        function findNextAvailablePositions(count) {
-            const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-            const positions = [];
-            
-            for (let row = 0; row < 10; row++) {
-                for (let col = 1; col <= 10; col++) {
-                    const position = rows[row] + col;
-                    if (!freezerData[position]) {
-                        positions.push(position);
-                        if (positions.length === count) {
-                            return positions;
-                        }
-                    }
-                }
-            }
-            return positions;
-        }
-        
-        // Add samples to freezer
-        function addSamples() {
-            const projectName = document.getElementById('projectName').value.trim();
-            const cellType = document.getElementById('cellType').value;
-            const cloneName = document.getElementById('cloneName').value.trim();
-            const freezeDate = document.getElementById('freezeDate').value;
-            const numVials = parseInt(document.getElementById('numVials').value);
-            
-            // Validation
-            if (!projectName) {
-                showStatus('Please enter a project name', 'error');
-                return;
-            }
-            if (!cellType) {
-                showStatus('Please select a cell type', 'error');
-                return;
-            }
-            if (!freezeDate) {
-                showStatus('Please enter a freeze date', 'error');
-                return;
-            }
-            if (!numVials || numVials < 1) {
-                showStatus('Please enter a valid number of vials', 'error');
-                return;
-            }
-            
-            // Find available positions
-            const availablePositions = findNextAvailablePositions(numVials);
-            if (availablePositions.length < numVials) {
-                showStatus(`Only ${availablePositions.length} positions available, but ${numVials} requested`, 'error');
-                return;
-            }
-            
-            // Create sample data
-            const sampleInfo = {
-                project: projectName,
-                type: cellType,
-                clone: cloneName,
-                date: freezeDate,
-                dateAdded: new Date().toISOString().split('T')[0]
-            };
-            
-            // Add to freezer data and update display
-            availablePositions.forEach(position => {
-                freezerData[position] = { ...sampleInfo };
-                updateCellDisplay(position);
-            });
-            
-            showStatus(`Successfully added ${numVials} vials to positions: ${availablePositions.join(', ')}`, 'success');
-            updateOccupancy();
-            
-            // Clear form
-            document.getElementById('projectName').value = '';
-            document.getElementById('cellType').value = '';
-            document.getElementById('cloneName').value = '';
-            document.getElementById('freezeDate').value = '';
-            document.getElementById('numVials').value = '1';
-        }
-        
-        // Update cell display
-        function updateCellDisplay(position) {
-            const cell = document.getElementById(position);
-            const data = freezerData[position];
-            
-            if (data) {
-                cell.className = 'cell occupied';
-                cell.draggable = true;
-                
-                // Get project-specific color
-                const colorInfo = getProjectColor(data.project);
-                
-                // Apply custom styling
-                cell.style.backgroundColor = colorInfo.bg;
-                cell.style.borderColor = colorInfo.border;
-                cell.style.color = colorInfo.text;
-                cell.style.fontWeight = 'bold';
-                
-                // Clear existing content
-                cell.innerHTML = '';
-                
-                const positionLabel = document.createElement('div');
-                positionLabel.textContent = position;
-                positionLabel.style.fontSize = '8px';
-                positionLabel.style.fontWeight = 'bold';
-                positionLabel.style.color = colorInfo.text;
-                
-                const sampleInfo = document.createElement('div');
-                sampleInfo.className = 'sample-details';
-                sampleInfo.style.color = colorInfo.text;
-                sampleInfo.innerHTML = `
-                    <div>${data.project}</div>
-                    <div>${data.type}</div>
-                    ${data.clone ? `<div>${data.clone}</div>` : ''}
-                    <div>${data.date}</div>
-                `;
-                
-                const dragHandle = document.createElement('div');
-                dragHandle.className = 'drag-handle';
-                dragHandle.title = 'Drag to move sample';
-                dragHandle.style.backgroundColor = colorInfo.text;
-                
-                const editIcon = document.createElement('div');
-                editIcon.className = 'edit-icon';
-                editIcon.title = 'Click to edit sample';
-                editIcon.innerHTML = '✎';
-                editIcon.style.color = 'white';
-                editIcon.style.backgroundColor = colorInfo.text;
-                editIcon.onclick = function(e) {
-                    e.stopPropagation();
-                    openEditModal(position);
-                };
-                
-                cell.appendChild(positionLabel);
-                cell.appendChild(sampleInfo);
-                cell.appendChild(dragHandle);
-                cell.appendChild(editIcon);
-            } else {
-                cell.className = 'cell';
-                cell.draggable = false;
-                cell.style.backgroundColor = 'white';
-                cell.style.borderColor = '#ccc';
-                cell.style.color = '#333';
-                cell.style.fontWeight = 'normal';
-                cell.innerHTML = `<div style="font-size: 8px; font-weight: bold;">${position}</div>`;
-            }
-        }
-        
-        // Show cell information or edit
-        function showCellInfo(position) {
-            const data = freezerData[position];
-            if (data) {
-                openEditModal(position);
-            }
-        }
-        
-        // Open edit modal
-        function openEditModal(position) {
-            const data = freezerData[position];
-            if (!data) return;
-            
-            currentEditPosition = position;
-            
-            // Populate form fields
-            document.getElementById('editPosition').value = position;
-            document.getElementById('editProjectName').value = data.project;
-            document.getElementById('editCellType').value = data.type;
-            document.getElementById('editCloneName').value = data.clone || '';
-            document.getElementById('editFreezeDate').value = data.date;
-            
-            // Show modal
-            document.getElementById('editModal').style.display = 'block';
-        }
-        
-        // Close edit modal
-        function closeEditModal() {
-            document.getElementById('editModal').style.display = 'none';
-            currentEditPosition = null;
-        }
-        
-        // Save edited sample
-        function saveEdit() {
-            if (!currentEditPosition) return;
-            
-            const projectName = document.getElementById('editProjectName').value.trim();
-            const cellType = document.getElementById('editCellType').value;
-            const cloneName = document.getElementById('editCloneName').value.trim();
-            const freezeDate = document.getElementById('editFreezeDate').value;
-            
-            // Validation
-            if (!projectName) {
-                showStatus('Please enter a project name', 'error');
-                return;
-            }
-            if (!cellType) {
-                showStatus('Please select a cell type', 'error');
-                return;
-            }
-            if (!freezeDate) {
-                showStatus('Please enter a freeze date', 'error');
-                return;
-            }
-            
-            // Update the sample data
-            const oldProject = freezerData[currentEditPosition].project;
-            freezerData[currentEditPosition] = {
-                project: projectName,
-                type: cellType,
-                clone: cloneName,
-                date: freezeDate,
-                dateAdded: freezerData[currentEditPosition].dateAdded // Keep original add date
-            };
-            
-            // Update cell display
-            updateCellDisplay(currentEditPosition);
-            
-            // Update legend if project name changed
-            if (oldProject.toLowerCase() !== projectName.toLowerCase()) {
-                updateLegend();
-            }
-            
-            closeEditModal();
-            showStatus(`Updated sample at position ${currentEditPosition}`, 'success');
-        }
-        
-        // Delete sample from edit modal
-        function deleteSample() {
-            if (!currentEditPosition) return;
-            
-            if (confirm(`Are you sure you want to delete the sample at position ${currentEditPosition}?`)) {
-                delete freezerData[currentEditPosition];
-                updateCellDisplay(currentEditPosition);
-                updateOccupancy();
-                closeEditModal();
-                showStatus(`Deleted sample from position ${currentEditPosition}`, 'success');
-            }
-        }
-        
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modal = document.getElementById('editModal');
-            if (event.target === modal) {
-                closeEditModal();
-            }
-        }
-        
-        // Update occupancy display
-        function updateOccupancy() {
-            const occupied = Object.keys(freezerData).length;
-            document.getElementById('occupancy').textContent = `${occupied} / 100 positions occupied`;
-        }
-        
-        // Show status message
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = message;
-            statusDiv.className = `status ${type}`;
-            setTimeout(() => {
-                statusDiv.textContent = '';
-                statusDiv.className = '';
-            }, 5000);
-        }
-        
-        // Convert position to sequential number (A1=1, A2=2, ..., J10=100)
-        function positionToNumber(position) {
-            const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-            const rowLetter = position[0];
-            const col = parseInt(position.slice(1));
-            const rowIndex = rows.indexOf(rowLetter);
-            return (rowIndex * 10) + col;
-        }
-        
-        // Export to CSV
-        function exportData() {
-            if (Object.keys(freezerData).length === 0) {
-                showStatus('No data to export', 'error');
-                return;
-            }
-            
-            let csvContent = 'Position,Box Number,Project,Cell Type,Clone,Freeze Date,Date Added\n';
-            
-            // Sort positions by box number instead of alphabetically
-            const positions = Object.keys(freezerData).sort((a, b) => {
-                return positionToNumber(a) - positionToNumber(b);
-            });
-            
-            positions.forEach(position => {
-                const data = freezerData[position];
-                const boxNumber = positionToNumber(position);
-                
-                // Wrap clone in quotes and escape any internal quotes
-                // This prevents Excel from converting "2E8" to scientific notation
-                const cloneText = data.clone ? `"${data.clone.replace(/"/g, '""')}"` : '""';
-                
-                csvContent += `${position},${boxNumber},"${data.project}","${data.type}",${cloneText},"${data.date}","${data.dateAdded}"\n`;
-            });
-            
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `freezer_inventory_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
-            showStatus('Data exported to CSV successfully', 'success');
-        }
-        
-        // Save data to JSON file
-        function saveData() {
-            const dataToSave = {
-                freezerData: freezerData,
-                lastUpdated: new Date().toISOString(),
-                version: "1.0"
-            };
-            
-            const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `freezer_data_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
-            showStatus('Data file saved successfully', 'success');
-        }
-        
-        // Load data from JSON file
-        function loadData() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const loadedData = JSON.parse(e.target.result);
-                    
-                    if (loadedData.freezerData) {
-                        // Confirm before overwriting existing data
-                        if (Object.keys(freezerData).length > 0) {
-                            if (!confirm('Loading this file will replace all current data. Continue?')) {
-                                return;
-                            }
-                        }
-                        
-                        freezerData = loadedData.freezerData;
-                        
-                        // Update all cell displays
-                        Object.keys(freezerData).forEach(position => {
-                            updateCellDisplay(position);
-                        });
-                        
-                        // Clear cells that are no longer occupied
-                        const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-                        for (let row = 0; row < 10; row++) {
-                            for (let col = 1; col <= 10; col++) {
-                                const position = rows[row] + col;
-                                if (!freezerData[position]) {
-                                    updateCellDisplay(position);
-                                }
-                            }
-                        }
-                        
-                        updateOccupancy();
-                        showStatus(`Data loaded successfully from ${file.name}`, 'success');
-                    }
-                } catch (error) {
-                    showStatus('Error loading file: Invalid format', 'error');
-                }
-            };
-            reader.readAsText(file);
-            
-            // Clear the file input
-            fileInput.value = '';
-        }
-        
-        // Clear all data
-        function clearAll() {
-            if (confirm('Are you sure you want to clear all freezer data? This cannot be undone.')) {
-                freezerData = {};
-                projectColors = {};
-                colorIndex = 0;
-                initializeFreezerBox();
-                updateLegend();
-                showStatus('All data cleared', 'success');
-            }
-        }
-        
-        // Set today's date as default
-        document.getElementById('freezeDate').valueAsDate = new Date();
-        
-        // Initialize the freezer box on page load
-        initializeFreezerBox();
-    </script>
-</body>
-</html>
+                    <span style="font-style: italic;">💡
