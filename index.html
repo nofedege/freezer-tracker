@@ -81,6 +81,14 @@
             background-color: #1976D2;
         }
         
+        .print-btn {
+            background-color: #ff9800;
+        }
+        
+        .print-btn:hover {
+            background-color: #f57c00;
+        }
+        
         .clear-btn {
             background-color: #f44336;
         }
@@ -133,11 +141,29 @@
             background-color: #e8f5e8;
         }
         
-        .cell.occupied {
-            cursor: move;
+        .cell.selected {
+            border: 3px solid #ff9800 !important;
+            background-color: #fff3e0 !important;
+            box-shadow: 0 0 10px rgba(255, 152, 0, 0.5);
+        }
+        
+        .selection-mode .cell.occupied:hover {
+            border: 3px dashed #ff9800;
+            transform: scale(1.02);
         }
         
         .edit-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .label-modal {
             display: none;
             position: fixed;
             z-index: 2000;
@@ -156,6 +182,10 @@
             width: 90%;
             max-width: 500px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .modal-content.wide {
+            max-width: 700px;
         }
         
         .modal-header {
@@ -299,6 +329,91 @@
             font-size: 9px;
             line-height: 1.1;
         }
+
+        .label-settings {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .label-preview {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 15px 0;
+            background-color: #fafafa;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .label-template {
+            border: 1px solid #333;
+            background: white;
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 8px;
+            line-height: 1.1;
+            width: 180px;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .pending-labels {
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .pending-labels h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+
+        .pending-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 3px;
+            padding: 10px;
+        }
+
+        .pending-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .pending-item:last-child {
+            border-bottom: none;
+        }
+
+        .label-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
     </style>
 </head>
 <body>
@@ -337,13 +452,30 @@
             </div>
         </div>
         
+        <div class="checkbox-group" style="justify-content: center; margin-bottom: 15px;">
+            <input type="checkbox" id="printAfterAdd" checked>
+            <label for="printAfterAdd">Automatically queue new samples for printing</label>
+        </div>
+        
         <div style="text-align: center;">
             <button onclick="addSamples()">Add Samples to Freezer</button>
+            <button class="print-btn" onclick="openLabelModal()">Print Labels</button>
             <button class="export-btn" onclick="exportData()">Export to CSV</button>
             <button class="export-btn" onclick="saveData()">Save Data File</button>
             <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadData()">
             <button class="export-btn" onclick="document.getElementById('fileInput').click()">Load Data File</button>
             <button class="clear-btn" onclick="clearAll()">Clear All</button>
+        </div>
+        
+        <div id="selectionMode" style="text-align: center; margin: 15px 0; display: none;">
+            <div style="background-color: #e3f2fd; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                <strong>Label Selection Mode</strong> - Click cells to select for printing
+                <div style="margin-top: 10px;">
+                    <span id="selectedCount">0</span> cells selected
+                </div>
+            </div>
+            <button onclick="addSelectedToQueue()" style="background-color: #4CAF50;">Add Selected to Print Queue</button>
+            <button onclick="exitSelectionMode()" style="background-color: #f44336;">Exit Selection Mode</button>
         </div>
         
         <div id="status"></div>
@@ -416,6 +548,94 @@
         </div>
     </div>
 
+    <!-- Label Printing Modal -->
+    <div id="labelModal" class="label-modal">
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h3>🏷️ Print Tube Labels</h3>
+                <button class="close-btn" onclick="closeLabelModal()">&times;</button>
+            </div>
+            
+            <div class="two-column">
+                <div>
+                    <div class="label-settings">
+                        <h4>Label Settings</h4>
+                        
+                        <div class="input-group">
+                            <label for="labelTemplate">Label Template:</label>
+                            <select id="labelTemplate" onchange="updateLabelPreview()">
+                                <option value="standard">Standard Tube Label</option>
+                                <option value="compact">Compact Label</option>
+                                <option value="detailed">Detailed Label</option>
+                                <option value="qr">QR Code Label</option>
+                            </select>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="labelSize">Label Size:</label>
+                            <select id="labelSize" onchange="updateLabelPreview()">
+                                <option value="0.5x1.5">0.5" x 1.5" (Tube wrap)</option>
+                                <option value="0.375x1.25">0.375" x 1.25" (Small tube)</option>
+                                <option value="0.75x1.5">0.75" x 1.5" (Large tube)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="includeQR" onchange="updateLabelPreview()">
+                            <label for="includeQR">Include QR Code</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="includeDate" checked onchange="updateLabelPreview()">
+                            <label for="includeDate">Include Freeze Date</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="includePosition" checked onchange="updateLabelPreview()">
+                            <label for="includePosition">Include Position</label>
+                        </div>
+                    </div>
+                    
+                    <div class="label-preview">
+                        <div id="labelPreviewContent">
+                            <div class="label-template">
+                                <div><strong>JSL020+</strong></div>
+                                <div>Single cell - A1</div>
+                                <div>1H9</div>
+                                <div>2024-01-15</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="pending-labels">
+                        <h4>Pending Labels (<span id="pendingCount">0</span>)</h4>
+                        <div class="pending-list" id="pendingList">
+                            <div style="text-align: center; color: #666; font-style: italic;">
+                                No labels queued for printing
+                            </div>
+                        </div>
+                        
+                        <div class="label-actions">
+                            <button onclick="addAllToQueue()">Add All Samples</button>
+                            <button onclick="enterSelectionMode()">Select Specific Cells</button>
+                            <button onclick="clearQueue()">Clear Queue</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="export-btn" onclick="exportNiceLabel()">Export NiceLabel File</button>
+                <button class="export-btn" onclick="exportBMP51()">Export Brady BMP51</button>
+                <button class="export-btn" onclick="exportZPL()">Export ZPL Commands</button>
+                <button class="print-btn" onclick="printToBrady()">Print to Brady BBP12</button>
+                <button class="cancel-btn" onclick="closeLabelModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Initialize freezer box data
         let freezerData = {};
@@ -424,6 +644,9 @@
         let projectColors = {}; // Store colors for each project
         let colorIndex = 0;
         let currentEditPosition = null; // Track which cell is being edited
+        let labelQueue = []; // Queue of samples to print labels for
+        let selectionMode = false; // Track if we're in cell selection mode
+        let selectedCells = []; // Track selected cells for printing
         
         // Color palette for projects - nice lab-friendly colors
         const colorPalette = [
@@ -495,6 +718,7 @@
             
             legendContainer.innerHTML = staticItems + projectItems + tipItem;
         }
+        
         function initializeFreezerBox() {
             const freezerBox = document.getElementById('freezerBox');
             const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
@@ -681,12 +905,23 @@
             };
             
             // Add to freezer data and update display
+            const addedPositions = [];
             availablePositions.forEach(position => {
                 freezerData[position] = { ...sampleInfo };
                 updateCellDisplay(position);
+                addedPositions.push(position);
             });
             
-            showStatus(`Successfully added ${numVials} vials to positions: ${availablePositions.join(', ')}`, 'success');
+            // Automatically add new samples to label queue if option is checked
+            const shouldPrintAfterAdd = document.getElementById('printAfterAdd').checked;
+            if (shouldPrintAfterAdd) {
+                addedPositions.forEach(position => {
+                    addToLabelQueue(position);
+                });
+                showStatus(`Successfully added ${numVials} vials to positions: ${availablePositions.join(', ')}. Added to label queue.`, 'success');
+            } else {
+                showStatus(`Successfully added ${numVials} vials to positions: ${availablePositions.join(', ')}.`, 'success');
+            }
             updateOccupancy();
             
             // Clear form
@@ -768,9 +1003,59 @@
         // Show cell information or edit
         function showCellInfo(position) {
             const data = freezerData[position];
-            if (data) {
+            
+            if (selectionMode && data) {
+                // In selection mode, toggle cell selection
+                toggleCellSelection(position);
+            } else if (data) {
+                // Normal mode, open edit modal
                 openEditModal(position);
             }
+        }
+        
+        // Toggle cell selection for printing
+        function toggleCellSelection(position) {
+            const cell = document.getElementById(position);
+            const index = selectedCells.indexOf(position);
+            
+            if (index > -1) {
+                // Deselect
+                selectedCells.splice(index, 1);
+                cell.classList.remove('selected');
+            } else {
+                // Select
+                selectedCells.push(position);
+                cell.classList.add('selected');
+            }
+            
+            updateSelectedCount();
+        }
+        
+        // Update selected cell count display
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedCells.length;
+        }
+        
+        // Enter selection mode
+        function enterSelectionMode() {
+            selectionMode = true;
+            selectedCells = [];
+            document.getElementById('selectionMode').style.display = 'block';
+            document.getElementById('freezerBox').classList.add('selection-mode');
+            closeLabelModal();
+            showStatus('Selection mode active - click cells to select for printing', 'success');
+        }
+        
+        // Exit selection mode
+        function exitSelectionMode() {
+            selectionMode = false;
+            selectedCells.forEach(position => {
+                document.getElementById(position).classList.remove('selected');
+            });
+            selectedCells = [];
+            document.getElementById('selectionMode').style.display = 'none';
+            document.getElementById('freezerBox').classList.remove('selection-mode');
+            showStatus('Exited selection mode', 'success');
         }
         
         // Open edit modal
@@ -857,9 +1142,13 @@
         
         // Close modal when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('editModal');
-            if (event.target === modal) {
+            const editModal = document.getElementById('editModal');
+            const labelModal = document.getElementById('labelModal');
+            if (event.target === editModal) {
                 closeEditModal();
+            }
+            if (event.target === labelModal) {
+                closeLabelModal();
             }
         }
         
@@ -930,7 +1219,7 @@
             const dataToSave = {
                 freezerData: freezerData,
                 lastUpdated: new Date().toISOString(),
-                version: "1.0"
+                version: "1.1"
             };
             
             const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
@@ -1001,10 +1290,571 @@
                 freezerData = {};
                 projectColors = {};
                 colorIndex = 0;
+                labelQueue = [];
                 initializeFreezerBox();
                 updateLegend();
                 showStatus('All data cleared', 'success');
             }
+        }
+
+        // === LABEL PRINTING FUNCTIONS ===
+        
+        // Open label printing modal
+        function openLabelModal() {
+            document.getElementById('labelModal').style.display = 'block';
+            updatePendingList();
+            updateLabelPreview();
+        }
+        
+        // Close label printing modal
+        function closeLabelModal() {
+            document.getElementById('labelModal').style.display = 'none';
+        }
+        
+        // Add sample to label queue
+        function addToLabelQueue(position) {
+            if (!labelQueue.includes(position) && freezerData[position]) {
+                labelQueue.push(position);
+                updatePendingList();
+            }
+        }
+        
+        // Remove sample from label queue
+        function removeFromLabelQueue(position) {
+            const index = labelQueue.indexOf(position);
+            if (index > -1) {
+                labelQueue.splice(index, 1);
+                updatePendingList();
+            }
+        }
+        
+        // Add all samples to queue
+        function addAllToQueue() {
+            labelQueue = Object.keys(freezerData);
+            updatePendingList();
+            showStatus(`Added ${labelQueue.length} samples to label queue`, 'success');
+        }
+        
+        // Add selected samples to queue
+        function addSelectedToQueue() {
+            if (selectedCells.length === 0) {
+                showStatus('No cells selected', 'error');
+                return;
+            }
+            
+            selectedCells.forEach(position => {
+                addToLabelQueue(position);
+            });
+            
+            showStatus(`Added ${selectedCells.length} selected samples to label queue`, 'success');
+            exitSelectionMode();
+            openLabelModal();
+        }
+        
+        // Clear label queue
+        function clearQueue() {
+            labelQueue = [];
+            updatePendingList();
+            showStatus('Label queue cleared', 'success');
+        }
+        
+        // Update pending labels list
+        function updatePendingList() {
+            const pendingList = document.getElementById('pendingList');
+            const pendingCount = document.getElementById('pendingCount');
+            
+            pendingCount.textContent = labelQueue.length;
+            
+            if (labelQueue.length === 0) {
+                pendingList.innerHTML = `
+                    <div style="text-align: center; color: #666; font-style: italic;">
+                        No labels queued for printing
+                    </div>
+                `;
+                return;
+            }
+            
+            let listHTML = '';
+            labelQueue.forEach(position => {
+                const data = freezerData[position];
+                if (data) {
+                    listHTML += `
+                        <div class="pending-item">
+                            <div>
+                                <strong>${position}</strong> - ${data.project}
+                                ${data.clone ? ` (${data.clone})` : ''}
+                            </div>
+                            <button style="background: #f44336; color: white; border: none; padding: 2px 8px; border-radius: 3px; cursor: pointer;" 
+                                    onclick="removeFromLabelQueue('${position}')">×</button>
+                        </div>
+                    `;
+                }
+            });
+            
+            pendingList.innerHTML = listHTML;
+        }
+        
+        // Update label preview
+        function updateLabelPreview() {
+            const template = document.getElementById('labelTemplate').value;
+            const includeQR = document.getElementById('includeQR').checked;
+            const includeDate = document.getElementById('includeDate').checked;
+            const includePosition = document.getElementById('includePosition').checked;
+            
+            // Sample data for preview
+            const sampleData = {
+                project: 'JSL020+',
+                type: 'Single cell',
+                clone: '1H9',
+                date: '2024-01-15',
+                position: 'A1'
+            };
+            
+            const previewContent = generateLabelHTML(sampleData, template, includeQR, includeDate, includePosition);
+            document.getElementById('labelPreviewContent').innerHTML = previewContent;
+        }
+        
+        // Generate label HTML based on template
+        function generateLabelHTML(data, template, includeQR, includeDate, includePosition) {
+            let labelContent = '';
+            
+            switch (template) {
+                case 'compact':
+                    labelContent = `
+                        <div class="label-template" style="height: 40px;">
+                            <div><strong>${data.project}</strong></div>
+                            <div>${data.clone || data.type}</div>
+                            ${includePosition ? `<div>${data.position}</div>` : ''}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'detailed':
+                    labelContent = `
+                        <div class="label-template" style="height: 80px;">
+                            <div><strong>${data.project}</strong></div>
+                            <div>${data.type}</div>
+                            ${data.clone ? `<div>Clone: ${data.clone}</div>` : ''}
+                            ${includePosition ? `<div>Pos: ${data.position}</div>` : ''}
+                            ${includeDate ? `<div>${data.date}</div>` : ''}
+                        </div>
+                    `;
+                    break;
+                    
+                case 'qr':
+                    labelContent = `
+                        <div class="label-template" style="height: 60px; display: flex;">
+                            <div style="flex: 1;">
+                                <div><strong>${data.project}</strong></div>
+                                <div>${data.clone || data.type}</div>
+                                ${includePosition ? `<div>${data.position}</div>` : ''}
+                            </div>
+                            <div style="width: 30px; height: 30px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 6px;">
+                                QR
+                            </div>
+                        </div>
+                    `;
+                    break;
+                    
+                default: // standard
+                    labelContent = `
+                        <div class="label-template">
+                            <div><strong>${data.project}</strong></div>
+                            <div>${data.type}${includePosition ? ` - ${data.position}` : ''}</div>
+                            ${data.clone ? `<div>${data.clone}</div>` : ''}
+                            ${includeDate ? `<div>${data.date}</div>` : ''}
+                        </div>
+                    `;
+            }
+            
+            return labelContent;
+        }
+        
+        // Export NiceLabel file format
+        function exportNiceLabel() {
+            if (labelQueue.length === 0) {
+                showStatus('No labels in queue to export', 'error');
+                return;
+            }
+            
+            const template = document.getElementById('labelTemplate').value;
+            const labelSize = document.getElementById('labelSize').value;
+            const includeQR = document.getElementById('includeQR').checked;
+            const includeDate = document.getElementById('includeDate').checked;
+            const includePosition = document.getElementById('includePosition').checked;
+            
+            // Generate NiceLabel-compatible CSV data file
+            let csvContent = 'Position,Project,CellType,Clone,FreezeDate,QRData\n';
+            
+            labelQueue.forEach(position => {
+                const data = freezerData[position];
+                if (data) {
+                    const qrData = `${data.project}|${position}|${data.date}`;
+                    csvContent += `"${position}","${data.project}","${data.type}","${data.clone || ''}","${data.date}","${qrData}"\n`;
+                }
+            });
+            
+            // Create NiceLabel instructions file
+            const niceLabelInstructions = `
+NiceLabel Print Job Instructions
+================================
+
+Label Template Settings:
+- Template: ${template}
+- Size: ${labelSize}
+- Include QR Code: ${includeQR ? 'Yes' : 'No'}
+- Include Date: ${includeDate ? 'Yes' : 'No'}
+- Include Position: ${includePosition ? 'Yes' : 'No'}
+
+Total Labels: ${labelQueue.length}
+
+Instructions:
+1. Import the accompanying CSV file into NiceLabel
+2. Configure your Brady BBP12 printer
+3. Use the following field mappings:
+   - Text1: Project
+   - Text2: CellType
+   - Text3: Clone
+   - Text4: FreezeDate
+   - Text5: Position
+   - QRCode: QRData
+
+Generated: ${new Date().toLocaleString()}
+            `;
+            
+            // Download CSV data file
+            const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+            const csvUrl = window.URL.createObjectURL(csvBlob);
+            const csvLink = document.createElement('a');
+            csvLink.href = csvUrl;
+            csvLink.download = `label_data_${new Date().toISOString().split('T')[0]}.csv`;
+            csvLink.click();
+            window.URL.revokeObjectURL(csvUrl);
+            
+            // Download instructions file
+            const instructionsBlob = new Blob([niceLabelInstructions], { type: 'text/plain' });
+            const instructionsUrl = window.URL.createObjectURL(instructionsBlob);
+            const instructionsLink = document.createElement('a');
+            instructionsLink.href = instructionsUrl;
+            instructionsLink.download = `nicelabel_instructions_${new Date().toISOString().split('T')[0]}.txt`;
+            instructionsLink.click();
+            window.URL.revokeObjectURL(instructionsUrl);
+            
+            showStatus(`Exported ${labelQueue.length} labels for NiceLabel`, 'success');
+        }
+        
+        // Export for Brady BMP51 (LabelMark/Markware format)
+        function exportBMP51() {
+            if (labelQueue.length === 0) {
+                showStatus('No labels in queue to export', 'error');
+                return;
+            }
+            
+            const template = document.getElementById('labelTemplate').value;
+            const labelSize = document.getElementById('labelSize').value;
+            const includeQR = document.getElementById('includeQR').checked;
+            const includeDate = document.getElementById('includeDate').checked;
+            const includePosition = document.getElementById('includePosition').checked;
+            
+            // Generate CSV data for BMP51 import
+            let csvContent = 'LABEL_ID,PROJECT,CELL_TYPE,CLONE,POSITION,FREEZE_DATE,QR_DATA\n';
+            
+            labelQueue.forEach((position, index) => {
+                const data = freezerData[position];
+                if (data) {
+                    const labelId = `TUBE_${String(index + 1).padStart(3, '0')}`;
+                    const qrData = includeQR ? `${data.project}|${position}|${data.date}` : '';
+                    
+                    csvContent += `"${labelId}","${data.project}","${data.type}","${data.clone || ''}","${position}","${data.date}","${qrData}"\n`;
+                }
+            });
+            
+            // Generate BMP51 template instructions
+            const bmp51Instructions = `
+Brady BMP51 Label Template Instructions
+======================================
+
+Compatible with LabelMark and MarkWare software
+
+STEP 1: Import Data
+- Open Brady LabelMark or MarkWare software
+- Import the accompanying CSV file: File > Import > CSV Data
+- Map fields as follows:
+
+STEP 2: Field Mapping
+┌─────────────────┬──────────────────┐
+│ CSV Column      │ Label Field      │
+├─────────────────┼──────────────────┤
+│ PROJECT         │ Text Field 1     │
+│ CELL_TYPE       │ Text Field 2     │
+│ CLONE           │ Text Field 3     │
+│ POSITION        │ Text Field 4     │
+│ FREEZE_DATE     │ Text Field 5     │
+│ QR_DATA         │ Barcode Field    │
+└─────────────────┴──────────────────┘
+
+STEP 3: Label Layout Settings
+- Label Size: ${labelSize}
+- Template: ${template}
+- Include QR Code: ${includeQR ? 'Yes' : 'No'}
+- Include Date: ${includeDate ? 'Yes' : 'No'}
+- Include Position: ${includePosition ? 'Yes' : 'No'}
+
+STEP 4: Recommended Label Layout
+${generateBMP51Layout(template, includeQR, includeDate, includePosition)}
+
+STEP 5: Print Settings
+- Printer: Brady BMP51
+- Label Material: Select appropriate tube label stock
+- Print Quality: High
+- Copies: 1 per record
+
+Total Labels to Print: ${labelQueue.length}
+Generated: ${new Date().toLocaleString()}
+
+TROUBLESHOOTING:
+- Ensure BMP51 is connected and recognized
+- Use genuine Brady label cartridges
+- Check label alignment before bulk printing
+- Test print 1-2 labels first
+
+For technical support, refer to Brady BMP51 user manual
+            `;
+            
+            // Generate MW file content (simplified Markware format)
+            const mwContent = generateMarkwareFile(labelQueue, template, includeQR, includeDate, includePosition);
+            
+            // Download CSV data file
+            const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+            const csvUrl = window.URL.createObjectURL(csvBlob);
+            const csvLink = document.createElement('a');
+            csvLink.href = csvUrl;
+            csvLink.download = `bmp51_data_${new Date().toISOString().split('T')[0]}.csv`;
+            csvLink.click();
+            window.URL.revokeObjectURL(csvUrl);
+            
+            // Download instructions
+            const instructionsBlob = new Blob([bmp51Instructions], { type: 'text/plain' });
+            const instructionsUrl = window.URL.createObjectURL(instructionsBlob);
+            const instructionsLink = document.createElement('a');
+            instructionsLink.href = instructionsUrl;
+            instructionsLink.download = `bmp51_instructions_${new Date().toISOString().split('T')[0]}.txt`;
+            instructionsLink.click();
+            window.URL.revokeObjectURL(instructionsUrl);
+            
+            // Download MW file
+            const mwBlob = new Blob([mwContent], { type: 'application/octet-stream' });
+            const mwUrl = window.URL.createObjectURL(mwBlob);
+            const mwLink = document.createElement('a');
+            mwLink.href = mwUrl;
+            mwLink.download = `tube_labels_${new Date().toISOString().split('T')[0]}.mw`;
+            mwLink.click();
+            window.URL.revokeObjectURL(mwUrl);
+            
+            showStatus(`Exported ${labelQueue.length} labels for Brady BMP51`, 'success');
+        }
+        
+        // Generate BMP51 layout description
+        function generateBMP51Layout(template, includeQR, includeDate, includePosition) {
+            let layout = '';
+            
+            switch (template) {
+                case 'compact':
+                    layout = `
+Text Layout (Compact):
+┌─────────────────────────┐
+│ [PROJECT] (Large, Bold) │
+│ [CLONE/CELL_TYPE]       │
+│ [POSITION] (if enabled) │
+└─────────────────────────┘`;
+                    break;
+                    
+                case 'detailed':
+                    layout = `
+Text Layout (Detailed):
+┌─────────────────────────┐
+│ [PROJECT] (Large, Bold) │
+│ Type: [CELL_TYPE]       │
+│ Clone: [CLONE]          │
+│ Pos: [POSITION]         │
+│ [FREEZE_DATE]           │
+└─────────────────────────┘`;
+                    break;
+                    
+                case 'qr':
+                    layout = `
+Text + QR Layout:
+┌─────────────────┬─────┐
+│ [PROJECT] (Bold)│ QR  │
+│ [CLONE/TYPE]    │Code │
+│ [POSITION]      │     │
+└─────────────────┴─────┘`;
+                    break;
+                    
+                default: // standard
+                    layout = `
+Text Layout (Standard):
+┌─────────────────────────┐
+│ [PROJECT] (Large, Bold) │
+│ [CELL_TYPE] - [POS]     │
+│ [CLONE] (if present)    │
+│ [FREEZE_DATE]           │
+└─────────────────────────┘`;
+            }
+            
+            if (includeQR && template !== 'qr') {
+                layout += `\n\nQR Code: Position in bottom-right corner\nQR Data Format: PROJECT|POSITION|DATE`;
+            }
+            
+            return layout;
+        }
+        
+        // Generate simplified Markware file content
+        function generateMarkwareFile(queue, template, includeQR, includeDate, includePosition) {
+            let mwContent = `[MARKWARE_FILE]\n`;
+            mwContent += `VERSION=2.0\n`;
+            mwContent += `LABEL_COUNT=${queue.length}\n`;
+            mwContent += `TEMPLATE=${template}\n`;
+            mwContent += `CREATED=${new Date().toISOString()}\n\n`;
+            
+            mwContent += `[LABEL_SETTINGS]\n`;
+            mwContent += `SIZE=${document.getElementById('labelSize').value}\n`;
+            mwContent += `INCLUDE_QR=${includeQR}\n`;
+            mwContent += `INCLUDE_DATE=${includeDate}\n`;
+            mwContent += `INCLUDE_POSITION=${includePosition}\n\n`;
+            
+            mwContent += `[DATA]\n`;
+            queue.forEach((position, index) => {
+                const data = freezerData[position];
+                if (data) {
+                    mwContent += `LABEL_${index + 1}:\n`;
+                    mwContent += `  PROJECT=${data.project}\n`;
+                    mwContent += `  CELL_TYPE=${data.type}\n`;
+                    mwContent += `  CLONE=${data.clone || ''}\n`;
+                    mwContent += `  POSITION=${position}\n`;
+                    mwContent += `  FREEZE_DATE=${data.date}\n`;
+                    if (includeQR) {
+                        mwContent += `  QR_DATA=${data.project}|${position}|${data.date}\n`;
+                    }
+                    mwContent += `\n`;
+                }
+            });
+            
+            return mwContent;
+        }
+        function exportZPL() {
+            if (labelQueue.length === 0) {
+                showStatus('No labels in queue to export', 'error');
+                return;
+            }
+            
+            const template = document.getElementById('labelTemplate').value;
+            const includeQR = document.getElementById('includeQR').checked;
+            const includeDate = document.getElementById('includeDate').checked;
+            const includePosition = document.getElementById('includePosition').checked;
+            
+            let zplContent = '';
+            
+            labelQueue.forEach(position => {
+                const data = freezerData[position];
+                if (data) {
+                    zplContent += generateZPL(data, position, template, includeQR, includeDate, includePosition);
+                }
+            });
+            
+            const blob = new Blob([zplContent], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tube_labels_${new Date().toISOString().split('T')[0]}.zpl`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showStatus(`Exported ${labelQueue.length} ZPL label commands`, 'success');
+        }
+        
+        // Generate ZPL code for a single label
+        function generateZPL(data, position, template, includeQR, includeDate, includePosition) {
+            let zpl = '^XA\n'; // Start of label
+            
+            // Set label size (adjust based on actual label dimensions)
+            zpl += '^LL0120\n'; // Label length
+            zpl += '^PW400\n';  // Print width
+            
+            // Project name (largest text)
+            zpl += '^FO20,20^A0N,25,25^FD' + data.project + '^FS\n';
+            
+            // Cell type and position
+            let line2 = data.type;
+            if (includePosition) {
+                line2 += ' - ' + position;
+            }
+            zpl += '^FO20,50^A0N,15,15^FD' + line2 + '^FS\n';
+            
+            // Clone name (if present)
+            if (data.clone) {
+                zpl += '^FO20,70^A0N,15,15^FD' + data.clone + '^FS\n';
+            }
+            
+            // Date (if included)
+            if (includeDate) {
+                const yPos = data.clone ? 90 : 70;
+                zpl += '^FO20,' + yPos + '^A0N,12,12^FD' + data.date + '^FS\n';
+            }
+            
+            // QR Code (if included)
+            if (includeQR) {
+                const qrData = data.project + '|' + position + '|' + data.date;
+                zpl += '^FO300,20^BQN,2,4^FDMM,' + qrData + '^FS\n';
+            }
+            
+            zpl += '^XZ\n'; // End of label
+            
+            return zpl;
+        }
+        
+        // Print to Brady BBP12 (requires Brady Workstation software)
+        function printToBrady() {
+            if (labelQueue.length === 0) {
+                showStatus('No labels in queue to print', 'error');
+                return;
+            }
+            
+            // Generate print data
+            const printData = {
+                labels: labelQueue.map(position => {
+                    const data = freezerData[position];
+                    return {
+                        position: position,
+                        project: data.project,
+                        type: data.type,
+                        clone: data.clone || '',
+                        date: data.date,
+                        qrData: `${data.project}|${position}|${data.date}`
+                    };
+                }),
+                settings: {
+                    template: document.getElementById('labelTemplate').value,
+                    size: document.getElementById('labelSize').value,
+                    includeQR: document.getElementById('includeQR').checked,
+                    includeDate: document.getElementById('includeDate').checked,
+                    includePosition: document.getElementById('includePosition').checked
+                }
+            };
+            
+            // Create a JSON file for Brady Workstation import
+            const blob = new Blob([JSON.stringify(printData, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `brady_print_job_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showStatus(`Generated Brady print job for ${labelQueue.length} labels. Import the downloaded file into Brady Workstation.`, 'success');
+            
+            // Show instructions
+            alert(`Print Job Created!\n\nTo print these labels:\n1. Open Brady Workstation software\n2. Import the downloaded JSON file\n3. Configure your BBP12 printer\n4. Select appropriate label stock\n5. Print the job\n\nTotal labels: ${labelQueue.length}`);
         }
         
         // Set today's date as default
